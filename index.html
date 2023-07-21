@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>House Tour</title>
+    <script src="https://aframe.io/releases/1.0.4/aframe.min.js" src="https://unpkg.com/aframe-event-set-component@4.2.1/dist/aframe-event-set-component.min.js"></script>
+    <script>
+      AFRAME.registerComponent("cursor-listener", {
+        schema: {
+          selectedItemId: { default: "", type: "string" }
+        },
+        init: function() {
+          this.handleClickEvents();
+          this.handleMouseEnterEvents();
+          this.handleMouseLeaveEvents();
+        },
+        handleClickEvents: function() {
+          this.el.addEventListener("click", evt => {
+            const placesContainer = document.querySelector("#places-container");
+            const { state } = placesContainer.getAttribute("tour");
+            if (state === "places-list") {
+              const id = this.el.getAttribute("id");
+              const placesId = [
+                "desk",
+                "outside",
+                "shelf",
+                "room"
+              ];
+              if (placesId.includes(id)) {
+                placesContainer.setAttribute("tour", {
+                  state: "view",
+                  selectedCard: id
+                });
+              }
+            }
+            if(state=="view"||state=="change-view"){
+              this.handelViewState()
+            }
+          });
+        },
+        handleMouseEnterEvents: function() {
+          this.el.addEventListener("mouseenter", () => {
+            const placeContainer = document.querySelector("#places-container");
+            const { state } = placeContainer.getAttribute("tour");
+            if (state === "places-list") {
+              this.handlePlacesListState();
+            }
+          });
+        },
+        handlePlacesListState: function() {
+          const id = this.el.getAttribute("id");
+          const placesId = ["desk", "outside", "shelf", "room"];
+          if (placesId.includes(id)) {
+            const placeContainer = document.querySelector("#places-container");
+            placeContainer.setAttribute("cursor-listener", {
+              selectedItemId: id
+            });
+            this.el.setAttribute("material", {
+              color:"#D76B30",
+              opacity: 1
+            });
+          }
+        },
+        handleMouseLeaveEvents: function() {
+          this.el.addEventListener("mouseleave", () => {
+            const placesContainer = document.querySelector("#places-container");
+            const { state } = placesContainer.getAttribute("tour");
+            if (state === "places-list") {
+              const { selectedItemId } = this.data;
+              if (selectedItemId) {
+                const el = document.querySelector(`#${selectedItemId}`);
+                const id = el.getAttribute("id");
+                if (id == selectedItemId) {
+                  el.setAttribute("material", {
+                    color: "#0077CC",
+                    opacity: 1
+                  });
+                }
+              }
+            }
+          });
+        },
+        handelViewState:function(){
+          const id=this.el.getAttribute("id")
+          const placesContainer=document.querySelector("#places-container")
+          const {selectedItemId}=placesContainer.getAttribute("cursor-listener")
+          const sideViewPlacesId=["place-1","place-2","place-3","place-4"]
+          if(sideViewPlacesId.includes(id)){
+            placesContainer.setAttribute("tour",{state:"change-view"})
+            const skyEl=document.querySelector("#main-container")
+            skyEl.setAttribute("material",{src:"./bnfj£5k.png",color:"#fff"})
+          }
+        }
+      });
+      AFRAME.registerComponent("place-side-view", {
+        init: function() {
+          this.createPlaces();
+        },
+        tick: function() {
+          const placesContainer = document.querySelector("#places-container");
+          const { state } = placesContainer.getAttribute("tour");
+          if (state === "view" || state === "change-view") {
+            this.el.setAttribute("visible", true);
+          } else {
+            this.el.setAttribute("visible", false);
+          }
+        },
+        createPlaces: function() {
+          const sideViewContainer = document.querySelector(
+            "#side-view-container"
+          );
+          let prevoiusXPosition = -150;
+          let prevoiusYPosition = 30;
+          for (var i = 1; i <= 4; i++) {
+            const position = {
+              x: (prevoiusXPosition += 50),
+              y: (prevoiusYPosition += 2),
+              z: -40
+            };
+            const entityEl = this.createPlaceThumbNail(position, i);
+            sideViewContainer.appendChild(entityEl);
+          }
+        },
+        createPlaceThumbNail: function(position, id) {
+          const entityEl = document.createElement("a-entity");
+          entityEl.setAttribute("visible", true);
+          entityEl.setAttribute("id", `place-${id}`);
+          entityEl.setAttribute("geometry", {
+            primitive: "circle",
+            radius: 2.5
+          });
+          entityEl.setAttribute("material", {
+            src: "./cash.png",
+            opacity: 0.9
+          });
+          entityEl.setAttribute("position", position);
+          entityEl.setAttribute("cursor-listener", {});
+          return entityEl;
+        }
+      });
+      AFRAME.registerComponent("tour", {
+        schema: {
+          state: { type: "string", default: "places-list" },
+          selectedCard: { type: "string", default: "#card1" },
+          zoomAspectRatio: { type: "number", default: 1 }
+        },
+        init: function() {
+          this.placesContainer = this.el;
+          this.cameraEl = document.querySelector("#camera");
+          this.createCards();
+        },
+        update: function() {
+          window.addEventListener("keydown", e => {
+            if (e.key === "ArrowUp") {
+              if (
+                (this.data.zoomAspectRatio <= 10 && this.data.state === "view") ||
+                (this.data.zoomAspectRatio <= 10 && this.data.state === "change-view")
+              ) {
+                this.data.zoomAspectRatio += 0.002;
+                this.cameraEl.setAttribute("zoom", this.data.zoomAspectRatio);
+              }
+            }
+            if (e.key === "ArrowDown") {
+              if (
+                (this.data.zoomAspectRatio > 1 && this.data.state === "view") ||
+                (this.data.zoomAspectRatio > 1 && this.data.state === "change-view")
+              ) {
+                this.data.zoomAspectRatio -= 0.002;
+                this.cameraEl.setAttribute("zoom", this.data.zoomAspectRatio);
+              }
+            }
+          });
+        },
+        tick: function() {
+          const { state } = this.el.getAttribute("tour");
+          if (state === "view") {
+            this.hideEl([this.placesContainer]);
+            this.showView();
+          }
+        },
+        hideEl: function(elList) {
+          elList.map(el => {
+            el.setAttribute("visible", false);
+          });
+        },
+        showView: function() {
+          const { selectedCard } = this.data;
+          const skyEl = document.querySelector("#main-container");
+          skyEl.setAttribute("material", {
+            src: `./${selectedCard}.jpg`,
+            color: "#fff"
+          });
+        },
+        createCards: function() {
+          const thumbNailsRef = [
+            {
+              id: "desk",
+              title: "desk",
+              url: "./Desk.jpg",
+            },
+            {
+              id: "outside",
+              title: "outside",
+              url: "./Outside.jpg",
+            },
+
+            {
+              id: "shelf",
+              title: "shelf",
+              url: "./Shelf.jpg",
+            },
+            {
+              id: "room",
+              title: "room",
+              url: "./Room.jpg",
+            }
+          ];
+          let prevoiusXPosition = -60;
+          for (var item of thumbNailsRef) {
+            const posX = prevoiusXPosition + 25;
+            const posY = 10;
+            const posZ = -40;
+            const position = { x: posX, y: posY, z: posZ };
+            prevoiusXPosition = posX;
+            const borderEl = this.createBorder(position, item.id);
+            const thumbNail = this.createThumbNail(item);
+            borderEl.appendChild(thumbNail);
+            const titleEl = this.createTitleEl(position, item);
+            borderEl.appendChild(titleEl);
+            this.placesContainer.appendChild(borderEl);
+          }
+        },
+        createBorder: function(position, id) {
+          const entityEl = document.createElement("a-entity");
+          entityEl.setAttribute("id", id);
+          entityEl.setAttribute("visible", true);
+          entityEl.setAttribute("geometry", {
+            primitive: "ring",
+            radiusInner: 9,
+            radiusOuter: 10
+          });
+          entityEl.setAttribute("position", position);
+          entityEl.setAttribute("material", {
+            color: "#0077CC",
+            opacity: 1
+          });
+          entityEl.setAttribute("cursor-listener", {});
+          return entityEl;
+        },
+        createThumbNail: function(item) {
+          const entityEl = document.createElement("a-entity");
+          entityEl.setAttribute("visible", true);
+          entityEl.setAttribute("geometry", {
+            primitive: "circle",
+            radius: 9
+          });
+          entityEl.setAttribute("material", { src: item.url });
+          entityEl.setAttribute("cursor-listener", {});
+          return entityEl;
+        },
+        createTitleEl: function(position, item) {
+          const entityEl = document.createElement("a-entity");
+          entityEl.setAttribute("text", {
+            font: "exo2bold",
+            align: "center",
+            width: 60,
+            color: "#e65100",
+            value: item.title
+          });
+          const elPosition = position;
+          elPosition.y = -20;
+          entityEl.setAttribute("position", elPosition);
+          entityEl.setAttribute("visible", true);
+          return entityEl;
+        }, 
+      });
+    </script>
+  </head>
+  <body>
+    <a-scene id="main-scene">
+      <a-sky id="main-container" radius="5000" color="#98DAFC"></a-sky>
+
+      <!-- Places Container -->
+      <a-entity id="places-container" cursor-listener tour></a-entity>
+
+      <!-- Different Side View of the Places -->
+      <a-entity
+        id="side-view-container"
+        place-side-view
+        cursor-listener
+      ></a-entity>
+
+      <!-- CAMERA -->
+      <a-camera id="camera" wasd-controls="enabled:false;">
+        <!-- App Title -->
+        <a-entity
+          id="app-title"
+          position="0 0.73 -1"
+          text="font: exo2bold; align: center; width: 2; color: #000; value: It's time to travel virtually!"
+        >
+          <a-entity
+            id="app-subtitle"
+            position="0 -0.1 0"
+            text="font: dejavu; align: center; width: 1; color: #0F184E; value: Travel Around The World"
+          ></a-entity>
+        </a-entity>
+
+        <!-- CURSOR -->
+        <a-entity
+          id="camera-cursor"
+          cursor
+          position="0 0 -1"
+          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+          material="color: #fff; shader: flat"
+        >
+        </a-entity>
+      </a-camera>
+    </a-scene>
+  </body>
+</html>
